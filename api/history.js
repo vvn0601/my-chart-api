@@ -1,5 +1,17 @@
 import yahooFinance from 'yahoo-finance2';
 
+// 1. 全局設定：偽裝成一般瀏覽器
+yahooFinance.setGlobalConfig({
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  },
+  queue: {
+    concurrency: 1, // 降低併發數，避免被擋
+    limit: 1,
+    interval: 1000
+  }
+});
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -19,24 +31,21 @@ export default async function handler(req, res) {
   if (!symbol) return res.status(400).json({ error: 'Symbol missing' });
 
   try {
-    // 1. 強制轉大寫 (確保 aapl -> AAPL)
-    const safeSymbol = symbol.toUpperCase();
+    const isTW = /^\d+$/.test(symbol);
+    const querySymbol = isTW ? `${symbol}.TW` : symbol;
 
-    // 2. 智慧判斷：
-    //    純數字 (如 2330) -> 視為台股，加 .TW
-    //    非純數字 (如 AAPL) -> 視為美股，維持原樣
-    const isTW = /^\d+$/.test(safeSymbol);
-    const querySymbol = isTW ? `${safeSymbol}.TW` : safeSymbol;
+    console.log(`Fetching: ${querySymbol}`);
 
-    console.log(`Fetching: ${querySymbol} (${start} ~ ${end})`);
-
+    // 2. 加上 suppressErrors 選項，忽略一些非致命警告
     const result = await yahooFinance.historical(querySymbol, {
       period1: start,
       period2: end
-    });
+    }, { validateResult: false }); 
 
     res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Yahoo Error:", error.message);
+    // 回傳具體錯誤訊息，方便除錯
+    res.status(500).json({ error: 'Yahoo Finance Blocked Request', details: error.message });
   }
 }
