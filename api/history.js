@@ -1,7 +1,7 @@
 import yahooFinance from 'yahoo-finance2';
 
 export default async function handler(req, res) {
-  // 1. 設定 CORS
+  // CORS 設定
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -20,29 +20,35 @@ export default async function handler(req, res) {
   try {
     if (!symbol) throw new Error('Symbol is required');
 
-    // 2. 判斷台股
     const safeSymbol = symbol.toUpperCase();
     const isTW = /^\d+$/.test(safeSymbol);
     const querySymbol = isTW ? `${safeSymbol}.TW` : safeSymbol;
 
-    console.log(`Fetching: ${querySymbol}`);
+    console.log(`Fetching with mask: ${querySymbol}`);
 
-    // 3. 呼叫 Yahoo (不使用全域設定，避免崩潰)
-    // 加入 validateResult: false 是為了避免 Yahoo 回傳警告導致報錯
+    // 關鍵修正：在請求中直接帶入 User-Agent 偽裝
     const result = await yahooFinance.historical(querySymbol, {
       period1: start,
       period2: end
-    }, { validateResult: false });
+    }, {
+      validateResult: false, // 忽略警告
+      fetchOptions: {
+        headers: {
+          // 這是偽裝的關鍵，假裝自己是瀏覽器
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      }
+    });
 
     res.status(200).json(result);
 
   } catch (error) {
     console.error("API Error:", error.message);
-    // 即使出錯，也要回傳 JSON，這樣前端才不會顯示 500 崩潰畫面
+    
+    // 如果還是被擋，回傳特定的 JSON 讓你知道
     res.status(500).json({ 
       error: 'Fetch Failed', 
-      details: error.message,
-      hint: 'Yahoo might be rate limiting this IP.' 
+      details: error.message.includes('Unexpected token') ? 'Yahoo Rate Limit (Blocked)' : error.message
     });
   }
 }
