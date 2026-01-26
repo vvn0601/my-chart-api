@@ -1,8 +1,5 @@
 import yahooFinance from "yahoo-finance2";
 
-// 抑制 Yahoo 套件不必要的警告
-yahooFinance.suppressNotices(['yahooSurvey', 'nonsensical', 'uncertainPeriod']);
-
 export default async function handler(req, res) {
   // --- 1. CORS 設定 ---
   res.setHeader('Access-Control-Allow-Credentials', true);
