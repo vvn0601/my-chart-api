@@ -4,7 +4,7 @@ import yahooFinance from "yahoo-finance2";
 yahooFinance.suppressNotices(['yahooSurvey', 'nonsensical', 'uncertainPeriod']);
 
 export default async function handler(req, res) {
-  // --- 1. CORS 設定 (維持不變) ---
+  // --- 1. CORS 設定 ---
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -19,7 +19,6 @@ export default async function handler(req, res) {
   }
 
   // --- 2. 接收參數 ---
-  // 假設前端傳來的是: symbol="2330.TW" 或 "AAPL", start="2023-01-01", end="2023-12-31"
   const { symbol, start, end } = req.query;
 
   try {
@@ -37,40 +36,37 @@ export default async function handler(req, res) {
     if (isTW) {
       //Params: 台股策略 (FinMind)
       
-      // 【關鍵修改】: 強制去掉 .TW，只取前面的代碼 (符合你說的 "只有撈代碼")
+      // 強制去掉 .TW，只取前面的代碼
       const stockId = safeSymbol.replace('.TW', '');
       
       console.log(`[TW Mode] Fetching ${stockId} from FinMind (${start} to ${end})`);
 
-      // FinMind URL (日期格式剛好支援 YYYY-MM-DD，所以 start/end 直接帶入)
+      // FinMind URL
       const apiUrl = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=${stockId}&start_date=${start}&end_date=${end}`;
       
       const response = await fetch(apiUrl);
       const json = await response.json();
 
-      // 【關鍵轉換】: 為了不改 App 前端，這裡把 FinMind 的欄位名稱
-      // 強制轉成 Yahoo 的欄位名稱 (open, high, low, close, volume)
+      // 轉換 FinMind 格式為 Yahoo 格式
       if (json.data && json.data.length > 0) {
         resultData = json.data.map(item => ({
-          date: item.date,            // FinMind 也是 YYYY-MM-DD
+          date: item.date,
           open: item.open,
-          high: item.max,             // FinMind 叫 max，轉成 high
-          low: item.min,              // FinMind 叫 min，轉成 low
+          high: item.max,
+          low: item.min,
           close: item.close,
-          adjClose: item.close,       // 台股暫用 close 當 adjClose
-          volume: item.Trading_Volume // FinMind 叫 Trading_Volume，轉成 volume
+          adjClose: item.close,
+          volume: item.Trading_Volume
         }));
       } else {
         console.warn(`FinMind returned no data for ${stockId}`);
-        // 如果 FinMind 沒抓到，維持空陣列，避免報錯
       }
 
     } else {
       //Params: 美股策略 (Yahoo Finance)
       console.log(`[US Mode] Fetching ${safeSymbol} from Yahoo`);
 
-      // 美股不需要特別去背 .TW，直接帶入即可
-      // 也不需要手動偽裝 Header，讓套件自動處理
+      // 美股直接用，移除多餘的 header 設定
       resultData = await yahooFinance.historical(safeSymbol, {
         period1: start,
         period2: end
