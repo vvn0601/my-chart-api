@@ -1,4 +1,5 @@
-import yahooFinance from 'yahoo-finance2';
+import yfModule from "yahoo-finance2";
+const yahooFinance = yfModule.default ?? yfModule;
 
 export default async function handler(req, res) {
   // CORS 設定
