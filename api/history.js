@@ -33,8 +33,8 @@ export default async function handler(req, res) {
     if (isTW) {
       //Params: 台股策略 (FinMind)
       
-      // 強制去掉 .TW，只取前面的代碼
-      const stockId = safeSymbol.replace('.TW', '');
+      // 強制去掉 .TW 和 .TWO，只取前面的代碼 (解決 8299.TWO 抓不到歷史的問題)
+      const stockId = safeSymbol.replace('.TW', '').replace('.TWO', '');
       
       console.log(`[TW Mode] Fetching ${stockId} from FinMind (${start} to ${end})`);
 
