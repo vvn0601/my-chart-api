@@ -1,8 +1,9 @@
-// 改用 require，避開 import 在某些環境的問題
-const yahooFinance = require('yahoo-finance2').default; 
+// 強制引入 node-fetch，避免 Vercel 環境找不到 fetch
+import fetch from 'node-fetch';
+import yahooFinance from "yahoo-finance2";
 
-module.exports = async (req, res) => {
-  // --- 1. CORS 設定 ---
+export default async function handler(req, res) {
+  // 1. 設定 CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -20,22 +21,21 @@ module.exports = async (req, res) => {
 
   try {
     if (!symbol) throw new Error('Symbol is required');
-
     const safeSymbol = symbol.toUpperCase();
-    // 判斷是否為台股
     const isTW = /^\d+$/.test(safeSymbol) || safeSymbol.endsWith('.TW');
     
     let resultData = [];
 
     if (isTW) {
-      // --- 台股邏輯 (FinMind) ---
+      // 台股邏輯 (FinMind)
       const stockId = safeSymbol.replace('.TW', '').replace('.TWO', '');
-      console.log(`[TW Mode] Fetching ${stockId}`);
+      console.log(`[TW] ${stockId}`);
       
       const apiUrl = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=${stockId}&start_date=${start}&end_date=${end}`;
       const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`FinMind error: ${response.status}`);
       const json = await response.json();
-
+      
       if (json.data && json.data.length > 0) {
         resultData = json.data.map(item => ({
           date: item.date,
@@ -48,19 +48,19 @@ module.exports = async (req, res) => {
         }));
       }
     } else {
-      // --- 美股邏輯 (Yahoo) ---
-      console.log(`[US Mode] Fetching ${safeSymbol}`);
+      // 美股邏輯 (Yahoo)
+      console.log(`[US] ${safeSymbol}`);
       
-      // 重點：必須用 new Date() 包起來，並建議改用 historical 方法比較穩定
-    const result = await yahooFinance.historical(safeSymbol, {
-      period1: new Date(start), // 👈 轉成 Date 物件
-      period2: new Date(end),   // 👈 轉成 Date 物件
-      interval: '1d'
-    });
+      // 使用 chart
+      const chartResult = await yahooFinance.chart(safeSymbol, {
+        period1: start,
+        period2: end,
+        interval: '1d'
+      }, { validateResult: false });
 
-      if (result && result.length > 0) {
-        resultData = result.map(q => ({
-          date: q.date.toISOString().split('T')[0], // 格式化日期
+      if (chartResult && chartResult.quotes) {
+        resultData = chartResult.quotes.map(q => ({
+          date: new Date(q.date).toISOString().split('T')[0],
           open: q.open,
           high: q.high,
           low: q.low,
@@ -75,9 +75,12 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error("API Error:", error.message);
-    res.status(500).json({ 
-      error: 'Fetch Failed', 
-      details: error.message 
+    // 重要：這裡回傳 200 狀態碼但包裝錯誤訊息，
+    // 這樣瀏覽器才收得到 CORS header，你才能在 Console 看到真正的錯誤！
+    res.status(200).json({ 
+      error: true, // 前端可以判斷這個 flag
+      message: error.message,
+      stack: error.stack
     });
   }
-};
+}
