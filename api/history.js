@@ -51,17 +51,16 @@ module.exports = async (req, res) => {
       // --- 美股邏輯 (Yahoo) ---
       console.log(`[US Mode] Fetching ${safeSymbol}`);
       
-      // 使用 chart
-      const chartResult = await yahooFinance.chart(safeSymbol, {
-        period1: start,
-        period2: end,
-        interval: '1d'
-      }, { validateResult: false });
+      // 重點：必須用 new Date() 包起來，並建議改用 historical 方法比較穩定
+    const result = await yahooFinance.historical(safeSymbol, {
+      period1: new Date(start), // 👈 轉成 Date 物件
+      period2: new Date(end),   // 👈 轉成 Date 物件
+      interval: '1d'
+    });
 
-      if (chartResult && chartResult.quotes) {
-        resultData = chartResult.quotes.map(q => ({
-          // 確保 date 轉成字串
-          date: new Date(q.date).toISOString().split('T')[0],
+      if (result && result.length > 0) {
+        resultData = result.map(q => ({
+          date: q.date.toISOString().split('T')[0], // 格式化日期
           open: q.open,
           high: q.high,
           low: q.low,
