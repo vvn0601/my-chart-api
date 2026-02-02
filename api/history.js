@@ -63,14 +63,27 @@ export default async function handler(req, res) {
       //Params: 美股策略 (Yahoo Finance)
       console.log(`[US Mode] Fetching ${safeSymbol} from Yahoo`);
 
-      // 美股直接用，移除多餘的 header 設定
-      resultData = await yahooFinance.historical(safeSymbol, {
+            // 🔥 關鍵修正：改用 .chart() 取代 .historical()
+      const chartResult = await yahooFinance.chart(safeSymbol, {
         period1: start,
-        period2: end
+        period2: end,
+        interval: '1d' // chart API 建議加上 interval
       }, {
         validateResult: false 
       });
-    }
+
+      // 檢查回傳結構並手動轉換格式 (因為 .chart 回傳結構不同)
+      if (chartResult && chartResult.quotes) {
+          resultData = chartResult.quotes.map(q => ({
+            date: q.date instanceof Date ? q.date.toISOString().split('T')[0] : new Date(q.date).toISOString().split('T')[0],
+            open: q.open,
+            high: q.high,
+            low: q.low,
+            close: q.close,
+            adjClose: q.adjclose || q.close, // 注意：屬性可能是全小寫 adjclose
+            volume: q.volume
+          }));
+      }
 
     // --- 4. 回傳結果 ---
     res.status(200).json(resultData);
