@@ -84,6 +84,7 @@ export default async function handler(req, res) {
             volume: q.volume
           }));
       }
+    }
 
     // --- 4. 回傳結果 ---
     res.status(200).json(resultData);
