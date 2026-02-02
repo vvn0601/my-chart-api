@@ -1,8 +1,9 @@
 {
   "name": "my-chart-api",
   "version": "1.0.0",
+  "type": "module",
   "dependencies": {
-  "yahoo-finance2": "^2.13.3"
-  "node-fetch": "^3.3.0"   <-- 補上這行
+    "yahoo-finance2": "^2.13.3",
+    "node-fetch": "^3.3.0"
   }
 }
