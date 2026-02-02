@@ -3,5 +3,6 @@
   "version": "1.0.0",
   "dependencies": {
   "yahoo-finance2": "^2.13.3"
+  "node-fetch": "^3.3.0"   <-- 補上這行
   }
 }
